@@ -9,12 +9,13 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+from datetime import timedelta
 from pathlib import Path
+
+from django.conf import settings
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -26,7 +27,6 @@ SECRET_KEY = 'django-insecure-$y_siqmod2%e3qudrj4u*h!$-s_e&umwllps^mse(%un0!8&0d
 DEBUG = True
 
 ALLOWED_HOSTS = []
-
 
 # Application definition
 
@@ -40,6 +40,9 @@ INSTALLED_APPS = [
     'cloudinary',
     'cloudinary_storage',
     'Recruitments',
+    'rest_framework',
+    'oauth2_provider',
+    'rest_framework_simplejwt',
 ]
 
 MIDDLEWARE = [
@@ -71,7 +74,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'RecruitmentApp.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
@@ -86,8 +88,8 @@ DATABASES = {
 }
 
 import pymysql
-pymysql.install_as_MySQLdb()
 
+pymysql.install_as_MySQLdb()
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -107,7 +109,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
@@ -118,7 +119,6 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
@@ -137,8 +137,48 @@ from cloudinary.utils import cloudinary_url
 
 # Configuration
 cloudinary.config(
-    cloud_name = "dqpu49bbo",
-    api_key = "743773348627895",
-    api_secret = "EF7elKsibuI8JEBqfMNZYYWUYvo", # Click 'View API Keys' above to copy your API secret
+    cloud_name="dqpu49bbo",
+    api_key="743773348627895",
+    api_secret="EF7elKsibuI8JEBqfMNZYYWUYvo",  # Click 'View API Keys' above to copy your API secret
     secure=True
 )
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated', # Mặc định yêu cầu đăng nhập
+    )
+}
+
+OAUTH2_PROVIDER = {
+    # Cài đặt cơ bản
+    'SCOPES': {'read': 'Đọc dữ liệu', 'write': 'Ghi dữ liệu'},
+    'ACCESS_TOKEN_EXPIRE_SECONDS': 3600, # Thời gian hết hạn của access token (1 giờ)
+    'REFRESH_TOKEN_EXPIRE_SECONDS': 86400 * 30, # Thời gian hết hạn của refresh token (30 ngày)
+    'ALLOWED_REDIRECT_URI_ENDPOINTS': [],
+    'ALLOWED_REDIRECT_URI_SCHEMES': ['http', 'https'],
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30), # Thời gian sống của access token JWT
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),    # Thời gian sống của refresh token JWT
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': True,
+
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': settings.SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
+}
