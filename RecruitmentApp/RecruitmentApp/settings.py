@@ -32,7 +32,7 @@ ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     'django.contrib.admin',
-    'django.contrib.auth',
+    'django.contrib.auth', # Chứng thực và phân quyền
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'Recruitments',
 ]
 
+# Tầng trung gian giữa client và server
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -80,9 +81,9 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'recruitment',
         'USER': 'root',
-        'PASSWORD': '0212',
+        'PASSWORD': 'Admin@123',
         'HOST': '',
-    }
+    },
 }
 
 import pymysql
