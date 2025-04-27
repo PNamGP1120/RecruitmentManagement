@@ -255,45 +255,18 @@ class Application(models.Model):
         ordering = ['-submittedAt']
 
 
-# 9. Conversation Model (Cuộc hội thoại)
-class Conversation(models.Model):
-    """
-    Nhóm các tin nhắn giữa hai người dùng (thường là NTV và NTD).
-    """
-    # conversationId tự động tạo
-    participants = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='conversations', verbose_name="Người tham gia")
-    lastMessageAt = models.DateTimeField(auto_now=True, verbose_name="Thời gian tin nhắn cuối") # Cập nhật khi có tin nhắn mới
 
-    def __str__(self):
-        usernames = " và ".join([user.username for user in self.participants.all()])
-        return f"Hội thoại giữa {usernames}"
+class Message(models.Model):
+    sender = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='sent_messages', on_delete=models.CASCADE)
+    recipient = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='received_messages', on_delete=models.CASCADE)
+    content = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Cuộc hội thoại"
-        verbose_name_plural = "Các cuộc hội thoại"
-        ordering = ['-lastMessageAt']
-
-# 10. ChatMessage Model (Tin nhắn)
-class ChatMessage(models.Model):
-    """
-    Đại diện cho một tin nhắn trong một cuộc hội thoại.
-    """
-    # messageId tự động tạo
-    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages', verbose_name="Cuộc hội thoại")
-    sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='sent_messages', verbose_name="Người gửi")
-    content = models.TextField(verbose_name="Nội dung")
-    sentAt = models.DateTimeField(auto_now_add=True, verbose_name="Thời gian gửi")
-    isRead = models.BooleanField(default=False, verbose_name="Đã đọc")
-    # Phương thức markAsRead sẽ nằm trong views/logic xử lý
+        ordering = ('timestamp',)
 
     def __str__(self):
-        return f"Tin nhắn từ {self.sender.username} lúc {self.sentAt.strftime('%H:%M %d/%m')}"
-
-    class Meta:
-        verbose_name = "Tin nhắn"
-        verbose_name_plural = "Các tin nhắn"
-        ordering = ['sentAt'] # Sắp xếp theo thời gian gửi
-
+        return f'From {self.sender} to {self.recipient}: {self.content[:20]}...'
 
 # 11. Interview Model (Buổi phỏng vấn)
 class Interview(models.Model):
@@ -305,6 +278,7 @@ class Interview(models.Model):
     # Người lên lịch (NTD) và người tham gia (NTV) có thể lấy từ application.job_posting.ntd_profile.user và application.user
     scheduledTime = models.DateTimeField(verbose_name="Thời gian dự kiến")
     platformLink = models.URLField(blank=True, null=True, verbose_name="Link phòng họp video")
+
     STATUS_CHOICES = [
         ('Scheduled', 'Đã lên lịch'),
         ('Completed', 'Đã hoàn thành'),
@@ -359,4 +333,6 @@ class Notification(models.Model):
         verbose_name = "Thông báo"
         verbose_name_plural = "Các thông báo"
         ordering = ['-createdAt']
+
+
 

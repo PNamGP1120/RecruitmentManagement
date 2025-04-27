@@ -1,33 +1,34 @@
+from rest_framework import routers
 from django.urls import path, include
-from rest_framework.routers import SimpleRouter
 from .views import (
     RegistrationViewSet,
-    LoginViewSet,
-    NtvProfileViewSet,
-    NtdRequestViewSet,
+    BecomeNtdViewSet,
     ApproveNtdRequestViewSet,
-    CVViewSet,
-    UserAccountUpdateViewSet,
+    NtvProfileViewSet,
+    ChangeActiveRoleViewSet,
     JobPostingViewSet,
-    NtdProfileViewSet, ApplicationViewSet
+    CVViewSet,
+    ApplicationViewSet,
+    InterviewViewSet,
+    NotificationViewSet, NtdProfileViewSet, MessageViewSet
 )
 
-router = SimpleRouter()
+router = routers.DefaultRouter()
 router.register(r'register', RegistrationViewSet, basename='register')
-router.register(r'auth', LoginViewSet, basename='auth')
-router.register(r'ntv-profiles', NtvProfileViewSet, basename='ntv-profile')
-router.register(r'ntd-requests', NtdRequestViewSet, basename='ntd-request')
-router.register(r'approve-ntd-requests', ApproveNtdRequestViewSet, basename='approve-ntd-request')
-router.register(r'cvs', CVViewSet, basename='cv')
-router.register(r'users', UserAccountUpdateViewSet, basename='users')
+router.register(r'ntd-request', BecomeNtdViewSet, basename='ntd-request')
+router.register(r'approve-ntd-request', ApproveNtdRequestViewSet, basename='approve-ntd-request')
+router.register(r'ntv-profile', NtvProfileViewSet, basename='ntv-profile')
+router.register(r'change-active-role', ChangeActiveRoleViewSet, basename='change-active-role')
 router.register(r'job-postings', JobPostingViewSet, basename='job-posting')
-router.register(r'ntd-profiles', NtdProfileViewSet, basename='ntd-profile') # Loại bỏ dòng trùng lặp
+router.register(r'cvs', CVViewSet, basename='cv')
 router.register(r'applications', ApplicationViewSet, basename='application')
+router.register(r'interviews', InterviewViewSet, basename='interview')
+router.register(r'notifications', NotificationViewSet, basename='notification')
+router.register(r'ntd-profile', NtdProfileViewSet, basename='ntd-profile')
+router.register(r'messages', MessageViewSet, basename='message')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('auth/login/', LoginViewSet.as_view({'post': 'create'}), name='login-login'),
-    path('users/me/', UserAccountUpdateViewSet.as_view({'put': 'update'}), name='user-account-update'),
-    # URL cho action 'update_me' (nếu bạn muốn NTD tự cập nhật bằng '/me/')
-    path('ntd-profiles/me/', NtdProfileViewSet.as_view({'put': 'update_me'}), name='ntd-profile-update-me'),
+
+
 ]
