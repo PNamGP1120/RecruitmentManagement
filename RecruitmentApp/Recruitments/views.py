@@ -3,7 +3,8 @@ from django.shortcuts import render
 import datetime
 import uuid
 
-from rest_framework import viewsets, status, serializers
+from Recruitments import paginators
+from rest_framework import viewsets, status, serializers, parsers
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.decorators import action
 from rest_framework import viewsets, permissions
@@ -112,6 +113,7 @@ class NtvProfileViewSet(viewsets.ModelViewSet):
     permission_classes = [BecomeNtvPermission, IsAuthenticated]
     serializer_class = NtvProfileSerializer
     http_method_names = ['get', 'post', 'put', 'patch']
+    # parser_classes = [parsers.MultiPartParser] # Dùng để lấy tập tin
 
     def get_queryset(self):
         return NtvProfile.objects.filter(user=self.request.user)

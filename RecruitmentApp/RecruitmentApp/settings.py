@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'oauth2_provider',
     'rest_framework_simplejwt',
+    'drf_yasg',
 ]
 
 # Tầng trung gian giữa client và server
@@ -138,11 +139,14 @@ from cloudinary.utils import cloudinary_url
 
 # Configuration
 cloudinary.config(
-    cloud_name="dqpu49bbo",
-    api_key="743773348627895",
-    api_secret="EF7elKsibuI8JEBqfMNZYYWUYvo",  # Click 'View API Keys' above to copy your API secret
+    cloud_name="dlysaj8pb",
+    api_key="462814331829971",
+    api_secret="T9kdTT7UVuzWUS7WBXJfI7eX_xE",  # Click 'View API Keys' above to copy your API secret
     secure=True
 )
+
+# Cấu hình để gửi dữ liệu bằng JSON
+OAUTH2_PROVIDER = { 'OAUTH2_BACKEND_CLASS': 'oauth2_provider.oauth2_backends.JSONOAuthLibCore' }
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -151,7 +155,7 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated', # Mặc định yêu cầu đăng nhập
-    )
+    ),
 }
 
 OAUTH2_PROVIDER = {

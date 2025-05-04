@@ -88,6 +88,12 @@ class NtdRequestSerializer(serializers.Serializer):
 class NtdProfileSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
 
+    # Trả về url đầy đủ của hình ảnh
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['companyLogo'] = instance.companyLogo.url if instance.companyLogo.url else ''
+        return data
+
     class Meta:
         model = NtdProfile
         fields = '__all__'
