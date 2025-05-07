@@ -211,7 +211,7 @@ class JobPosting(models.Model):
     jobType = models.CharField(max_length=20, choices=JOB_TYPE_CHOICES, verbose_name="Loại hình công việc")
     createdAt = models.DateTimeField(auto_now_add=True, verbose_name="Ngày đăng")
     expiresAt = models.DateTimeField(null=True, blank=True, verbose_name="Ngày hết hạn")
-    isActive = models.BooleanField(default=True, verbose_name="Đang hoạt động")
+    isActive = models.BooleanField(default=False, verbose_name="Đang hoạt động")
     # Các phương thức editJob, closeJob, getApplications sẽ nằm trong views/serializers
 
     def __str__(self):

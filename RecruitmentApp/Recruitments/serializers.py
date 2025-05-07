@@ -134,8 +134,8 @@ class ApproveNtdRequestSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         print(
-            f"Before update - validated_data['is_approved']: {validated_data.get('is_approved')}, instance.isApproved: {instance.isApproved}")
-        instance.isApproved = validated_data.get('is_approved', instance.isApproved)
+            f"Before update - validated_data['is_approved']: {validated_data.get('isApproved')}, instance.isApproved: {instance.isApproved}")
+        instance.isApproved = validated_data.get('isApproved', instance.isApproved)
         print(f"After update - instance.isApproved: {instance.isApproved}")
         instance.approvedAt = timezone.now() if instance.isApproved else None
         instance.approvedBy = self.context['request'].user
