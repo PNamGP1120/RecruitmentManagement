@@ -43,7 +43,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'oauth2_provider',
     'rest_framework_simplejwt',
-    'corsheaders'
+    'corsheaders',
+    'drf_yasg',
 ]
 
 MIDDLEWARE = [
