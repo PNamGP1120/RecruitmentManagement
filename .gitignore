@@ -1,0 +1,39 @@
+# Python bytecode files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Django-specific
+*.log
+*.pot
+*.pyc
+*.pyo
+*.db
+*.sqlite3
+*.sqlite
+media/
+static/
+Recruitments/
+RecruitmentApp/
+
+# VSCode and IDE settings
+.vscode/
+.idea/
+
+# Environment files
+.env
+.env.*
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Django migrations
+*/migrations/*
+
+# macOS Finder
+.DS_Store
+
+# Windows Thumbs
+Thumbs.db
