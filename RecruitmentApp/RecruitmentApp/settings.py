@@ -32,7 +32,7 @@ ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     'django.contrib.admin',
-    'django.contrib.auth', # Chứng thực và phân quyền
+    'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
@@ -43,11 +43,13 @@ INSTALLED_APPS = [
     'rest_framework',
     'oauth2_provider',
     'rest_framework_simplejwt',
+    'corsheaders',
     'drf_yasg',
 ]
 
 # Tầng trung gian giữa client và server
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -154,22 +156,22 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated', # Mặc định yêu cầu đăng nhập
-    ),
+        'rest_framework.permissions.IsAuthenticated',  # Mặc định yêu cầu đăng nhập
+    )
 }
 
 OAUTH2_PROVIDER = {
     # Cài đặt cơ bản
     'SCOPES': {'read': 'Đọc dữ liệu', 'write': 'Ghi dữ liệu'},
-    'ACCESS_TOKEN_EXPIRE_SECONDS': 3600, # Thời gian hết hạn của access token (1 giờ)
-    'REFRESH_TOKEN_EXPIRE_SECONDS': 86400 * 30, # Thời gian hết hạn của refresh token (30 ngày)
+    'ACCESS_TOKEN_EXPIRE_SECONDS': 3600,  # Thời gian hết hạn của access token (1 giờ)
+    'REFRESH_TOKEN_EXPIRE_SECONDS': 86400 * 30,  # Thời gian hết hạn của refresh token (30 ngày)
     'ALLOWED_REDIRECT_URI_ENDPOINTS': [],
     'ALLOWED_REDIRECT_URI_SCHEMES': ['http', 'https'],
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30), # Thời gian sống của access token JWT
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),    # Thời gian sống của refresh token JWT
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),  # Thời gian sống của access token JWT
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),  # Thời gian sống của refresh token JWT
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
 
@@ -187,3 +189,13 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
+
+CORS_ORIGIN_ALLOW_ALL = True
+# settings.py
+
+CORS_ALLOWED_ORIGINS = [
+    'http://*',
+    'https://*',
+]
+
+ALLOWED_HOSTS = ['*']
