@@ -13,8 +13,6 @@ __pycache__/
 *.sqlite
 media/
 static/
-Recruitments/
-RecruitmentApp/
 
 # VSCode and IDE settings
 .vscode/

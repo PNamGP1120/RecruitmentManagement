@@ -620,11 +620,16 @@ class JobPostingViewSet(viewsets.ModelViewSet):
         }, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
-    def request_approval(self, request, pk=None):
+    def request_approval(self, request, slug=None):
         """
         Nhà tuyển dụng gửi yêu cầu phê duyệt cho admin.
         """
-        job_posting = self.get_object()
+        # Lấy đối tượng JobPosting qua slug thay vì pk
+        job_posting = JobPosting.objects.filter(slug=slug).first()
+
+        # Kiểm tra nếu không tìm thấy bài đăng
+        if not job_posting:
+            return Response({"detail": "Tin tuyển dụng không tồn tại."}, status=status.HTTP_404_NOT_FOUND)
 
         # Kiểm tra trạng thái tin tuyển dụng
         if job_posting.status != 'draft':
@@ -769,7 +774,7 @@ class InterviewViewSet(viewsets.ModelViewSet):
         interview = Interview.objects.create(
             application=application,
             scheduled_time=scheduled_time,
-            platform_link=jitsi_url  # Lưu liên kết Jitsi
+            platform_link=jitsi_url
         )
 
         # Gửi thông báo đến người tìm việc về lịch phỏng vấn
