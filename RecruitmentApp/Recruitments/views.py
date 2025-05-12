@@ -593,14 +593,21 @@ class JobPostingViewSet(viewsets.ModelViewSet):
         return Response({"message": "Tin tuyển dụng đã được xóa thành công."}, status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['post'])
-    def approve(self, request, pk=None):
+    def approve(self, request, slug=None):
         """
-        Admin phê duyệt tin tuyển dụng của nhà tuyển dụng.
+        Admin phê duyệt tin tuyển dụng của nhà tuyển dụng theo slug.
         """
-        job_posting = self.get_object()
+        # Lấy đối tượng JobPosting qua slug
+        job_posting = JobPosting.objects.filter(slug=slug).first()
+
+        if not job_posting:
+            return Response({"detail": "Tin tuyển dụng không tồn tại."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Kiểm tra nếu trạng thái của bài đăng không phải là 'pending_approval'
         if job_posting.status != 'pending_approval':
             return Response({"detail": "Tin tuyển dụng không cần phê duyệt."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Cập nhật trạng thái của tin tuyển dụng thành 'approved'
         job_posting.status = 'approved'
         job_posting.save()
 
@@ -618,6 +625,7 @@ class JobPostingViewSet(viewsets.ModelViewSet):
             "message": "Tin tuyển dụng đã được phê duyệt.",
             "job_posting": JobPostingSerializer(job_posting).data
         }, status=status.HTTP_200_OK)
+
 
     @action(detail=True, methods=['post'])
     def request_approval(self, request, slug=None):
