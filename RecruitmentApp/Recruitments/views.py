@@ -667,24 +667,28 @@ class JobPostingViewSet(viewsets.ModelViewSet):
         """
         Lấy chi tiết tin tuyển dụng theo slug hoặc uuid.
         """
-        identifier = kwargs.get('pk')  # Lấy id (slug hoặc uuid) từ URL
-
+        identifier = kwargs.get('slug')  # Lấy slug hoặc uuid từ URL
+        print(identifier)
         # Kiểm tra nếu là slug
-        if '-' in identifier:  # Kiểm tra dấu gạch ngang để xác định là slug
+        if '-' in identifier:  # Nếu là slug
             try:
                 job_posting = JobPosting.objects.get(slug=identifier)
             except JobPosting.DoesNotExist:
                 return Response({"detail": "Tin tuyển dụng không tồn tại."}, status=status.HTTP_404_NOT_FOUND)
-        else:  # Nếu không có gạch ngang, coi như là uuid
+        else:  # Nếu không có dấu gạch ngang, coi là uuid
             try:
                 job_posting = JobPosting.objects.get(id=identifier)
             except JobPosting.DoesNotExist:
                 return Response({"detail": "Tin tuyển dụng không tồn tại."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Kiểm tra quyền xem bài đăng
-        if (IsJobSeeker().has_permission(self.request, self) and job_posting.status != 'approved') or \
-                (IsEmployer().has_permission(self.request, self) and job_posting.ntd_profile.user != self.request.user):
-            return Response({"detail": "Bạn không có quyền xem bài đăng này."}, status=status.HTTP_403_FORBIDDEN)
+        # Kiểm tra quyền xem bài đăng dựa trên trạng thái và vai trò người dùng
+        if IsJobSeeker().has_permission(self.request, self):
+            if job_posting.status != 'approved':  # Người tìm việc chỉ có thể xem tin đã phê duyệt
+                return Response({"detail": "Bạn không có quyền xem bài đăng này."}, status=status.HTTP_403_FORBIDDEN)
+
+        if IsEmployer().has_permission(self.request, self):
+            if job_posting.ntd_profile.user != self.request.user:  # Nhà tuyển dụng chỉ xem tin của mình
+                return Response({"detail": "Bạn không có quyền xem bài đăng này."}, status=status.HTTP_403_FORBIDDEN)
 
         return Response({
             "job_posting": JobPostingSerializer(job_posting).data
