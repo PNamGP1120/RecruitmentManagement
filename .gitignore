@@ -35,3 +35,6 @@ env/
 
 # Windows Thumbs
 Thumbs.db
+
+# firebase
+*/recruitmentchat-firebase.json
