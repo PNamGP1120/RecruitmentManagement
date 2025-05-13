@@ -1,23 +1,25 @@
 import re
 from django.contrib.auth import get_user_model
-from django.db.models import Q
 from rest_framework import serializers
 from difflib import SequenceMatcher
 from django.core import validators
-from firebase_admin import db as firebase_db
-
-from . import firebase_config
-from .models import NtvProfile, NtdProfile, UserRole, Notification, Role, CV, JobPosting, Application, Interview, \
-    Message, User
 
 
-class UserSerializer(serializers.ModelSerializer):
+
+from .models import RecruiterProfile, JobSeekerProfile, UserRole, Notification, Role, CV, JobPosting, Application, \
+    Interview, \
+    Message, MyUser
+
+
+class MyUserSerializer(serializers.ModelSerializer):
     """
     Serializer cho thông tin người dùng.
     """
+
     class Meta:
         model = get_user_model()
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'date_joined', 'is_active', 'avatar', 'active_role']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'date_joined', 'is_active', 'avatar',
+                  'active_role']
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
@@ -31,7 +33,8 @@ class RegistrationSerializer(serializers.ModelSerializer):
     """
     username = serializers.CharField(
         max_length=150,
-        validators=[validators.RegexValidator(r'^[a-zA-Z0-9._-]+$', message="Chỉ cho phép chữ cái, số, dấu chấm, gạch dưới và gạch ngang.")]
+        validators=[validators.RegexValidator(r'^[a-zA-Z0-9._-]+$',
+                                              message="Chỉ cho phép chữ cái, số, dấu chấm, gạch dưới và gạch ngang.")]
     )
     email = serializers.EmailField(max_length=254)
     password = serializers.CharField(style={'input_type': 'password'}, write_only=True)
@@ -51,7 +54,8 @@ class RegistrationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Tên người dùng này đã tồn tại.")
         return value
 
-    def validate_email(self, value):
+    @staticmethod
+    def validate_email(value):
         if get_user_model().objects.filter(email=value).exists():
             raise serializers.ValidationError("Email này đã tồn tại.")
         return value
@@ -65,21 +69,24 @@ class RegistrationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Mật khẩu phải có ít nhất 8 ký tự.")
 
         if not (re.search(r'[A-Z]', password) and re.search(r'\d', password) and re.search(r'[\W_]', password)):
-            raise serializers.ValidationError("Mật khẩu không đủ mạnh. Phải có ít nhất 8 ký tự, một chữ cái viết hoa, một số và một ký tự đặc biệt.")
+            raise serializers.ValidationError(
+                "Mật khẩu không đủ mạnh. Phải có ít nhất 8 ký tự, một chữ cái viết hoa, một số và một ký tự đặc biệt.")
 
         user = get_user_model()(username=data['username'], email=data['email'])
-        if password and any(SequenceMatcher(None, password.lower(), getattr(user, attr, '').lower()).quick_ratio() >= 0.7 for attr in ['username', 'email'] if getattr(user, attr, '')):
+        if password and any(
+                SequenceMatcher(None, password.lower(), getattr(user, attr, '').lower()).quick_ratio() >= 0.7 for attr
+                in ['username', 'email'] if getattr(user, attr, '')):
             raise serializers.ValidationError("Mật khẩu quá giống với tên người dùng hoặc email.")
 
         return data
 
     def create(self, validated_data):
-        user = get_user_model().objects.create_user(
+        my_user = get_user_model().objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
             password=validated_data['password']
         )
-        return user
+        return my_user
 
 
 class LoginSerializer(serializers.Serializer):
@@ -90,12 +97,12 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(style={'input_type': 'password'}, write_only=True)
 
 
-class NtvProfileSerializer(serializers.ModelSerializer):
+class JobSeekerProfileSerializer(serializers.ModelSerializer):
     """
     Serializer cho hồ sơ người tìm việc (NTV).
     """
     class Meta:
-        model = NtvProfile
+        model = JobSeekerProfile
         fields = ['summary', 'experience', 'education', 'skills', 'phone_number', 'date_of_birth', 'gender']
 
     def update(self, instance, validated_data):
@@ -108,25 +115,25 @@ class NtvProfileSerializer(serializers.ModelSerializer):
         return instance
 
 
-class NtdProfileSerializer(serializers.ModelSerializer):
+class RecruiterProfileSerializer(serializers.ModelSerializer):
     """
     Serializer cho hồ sơ nhà tuyển dụng (NTD).
     """
     class Meta:
-        model = NtdProfile
+        model = RecruiterProfile
         fields = ['company_name', 'company_website', 'company_description', 'industry', 'address', 'company_logo']
 
     def create(self, validated_data):
         user = self.context['request'].user
         validated_data['user'] = user
-        ntd_profile = NtdProfile.objects.create(**validated_data)
-        return ntd_profile
+        recruiter_profile = RecruiterProfile.objects.create(**validated_data)
+        return recruiter_profile
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
         rep['company_logo_url'] = instance.company_logo.url if instance.company_logo else None
         return rep
-
+    
 
 class UserRoleSerializer(serializers.ModelSerializer):
     """
@@ -164,11 +171,11 @@ class BecomeAdminSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = UserRole
-        fields = ['user', 'role']
+        fields = ['my_user', 'role']
 
     def create(self, validated_data):
-        role = Role.objects.get(role_name=Role.ADMIN)
-        user = validated_data['user']
+        role = Role.objects.get(role_name=Role.Admin)
+        user = validated_data['my_user']
         user_role = UserRole.objects.create(
             user=user,
             role=role,
@@ -187,8 +194,8 @@ class CVSerializer(serializers.ModelSerializer):
         Kiểm tra nếu CV là mặc định, chỉ có một CV mặc định được phép cho mỗi người tìm việc.
         """
         if data.get('is_default', False):
-            ntv_profile = data.get('ntv_profile')
-            if ntv_profile and ntv_profile.cvs.filter(is_default=True).exists():
+            job_seeker_profile = data.get('job_seeker_profile')
+            if job_seeker_profile and job_seeker_profile.cvs.filter(is_default=True).exists():
                 raise serializers.ValidationError("Chỉ được phép có một CV mặc định.")
         return data
 
@@ -196,7 +203,7 @@ class CVSerializer(serializers.ModelSerializer):
         # Nếu được yêu cầu làm CV mặc định, cập nhật các CV còn lại thành không phải mặc định
         if validated_data.get('is_default') and validated_data['is_default'] is True:
             # Đặt tất cả CV của người tìm việc thành không phải mặc định
-            CV.objects.filter(ntv_profile=instance.ntv_profile).update(is_default=False)
+            CV.objects.filter(job_seeker_profile=instance.job_seeker_profile).update(is_default=False)
 
         # Cập nhật các trường còn lại
         return super().update(instance, validated_data)
@@ -208,15 +215,15 @@ class CVSerializer(serializers.ModelSerializer):
 
 
 class JobPostingSerializer(serializers.ModelSerializer):
-    ntd_profile = serializers.PrimaryKeyRelatedField(queryset=NtdProfile.objects.all(), required=False)
+    recruiter_profile = serializers.PrimaryKeyRelatedField(queryset=RecruiterProfile.objects.all(), required=False)
 
     class Meta:
         model = JobPosting
-        fields = ['id', 'ntd_profile', 'title', 'slug', 'description', 'location', 'salary_min', 'salary_max', 'experience_required', 'job_type', 'status', 'expiration_date']
+        fields = ['id', 'recruiter_profile', 'title', 'slug', 'description', 'location', 'salary_min', 'salary_max', 'experience_required', 'job_type', 'status', 'expiration_date']
 
     def validate(self, data):
-        # Nếu người dùng không phải là admin và không có ntd_profile, trả về lỗi
-        if not self.context['request'].user.ntd_profile:
+        # Nếu người dùng không phải là admin và không có recruiter_profile, trả về lỗi
+        if not self.context['request'].user.recruiter_profile:
             raise serializers.ValidationError("Bạn cần tạo hồ sơ nhà tuyển dụng trước khi đăng tin tuyển dụng.")
         return data
 
@@ -224,12 +231,12 @@ class JobPostingSerializer(serializers.ModelSerializer):
 class ApplicationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Application
-        fields = ['user', 'job_posting', 'cv', 'status', 'cover_letter']
+        fields = ['my_user', 'job_posting', 'cv', 'status', 'cover_letter']
         read_only_fields = ['user']  # Không cho phép chỉnh sửa user từ ngoài
 
     def create(self, validated_data):
         # Tự động gán user là người dùng đã đăng nhập
-        validated_data['user'] = self.context['request'].user
+        validated_data['my_user'] = self.context['request'].user
         return super().create(validated_data)
 
 
@@ -247,7 +254,7 @@ class InterviewSerializer(serializers.ModelSerializer):
 
 class MessageSerializer(serializers.ModelSerializer):
     sender = serializers.PrimaryKeyRelatedField(read_only=True)  # Chỉ có thể đọc (người gửi là người dùng hiện tại)
-    recipient = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())  # Người nhận phải là một người dùng hợp lệ
+    recipient = serializers.PrimaryKeyRelatedField(queryset=MyUser.objects.all())  # Người nhận phải là một người dùng hợp lệ
 
     class Meta:
         model = Message
@@ -284,10 +291,3 @@ class ConversationSerializer(serializers.Serializer):
         participant = self.get_participant(instance)  # Lấy thông tin người tham gia
         representation['participant'] = participant.username  # Trả về username của participant
         return representation
-
-
-
-
-
-
-

@@ -16,13 +16,13 @@ class BaseModel(models.Model):
 
 
 class Role(models.Model):
-    NTV = 'NTV'
-    NTD = 'NTD'
-    ADMIN = 'ADMIN'
+    JobSeeker = 'JobSeeker'
+    Recruiter = 'Recruiter'
+    Admin = 'Admin'
     ROLE_CHOICES = [
-        (NTV, 'Người tìm việc'),
-        (NTD, 'Nhà tuyển dụng'),
-        (ADMIN, 'Quản trị viên'),
+        (JobSeeker, 'Người tìm việc'),
+        (Recruiter, 'Nhà tuyển dụng'),
+        (Admin, 'Quản trị viên'),
     ]
     role_name = models.CharField(max_length=20, choices=ROLE_CHOICES, unique=True)
 
@@ -35,7 +35,7 @@ class Role(models.Model):
         ordering = ['role_name']
 
 
-class User(AbstractUser):
+class MyUser(AbstractUser):
     email = models.EmailField(unique=True)
     avatar = CloudinaryField(null=True, blank=True, folder='avatars')
     active_role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True)
@@ -54,7 +54,7 @@ class User(AbstractUser):
 
 
 class UserRole(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='user_roles')
+    my_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='user_roles')
     role = models.ForeignKey(Role, on_delete=models.CASCADE, related_name='role_users')
     is_approved = models.BooleanField(default=False)
     approved_at = models.DateTimeField(null=True, blank=True)
@@ -62,14 +62,14 @@ class UserRole(models.Model):
                                     related_name='approved_roles')
 
     class Meta:
-        unique_together = ('user', 'role')
+        unique_together = ('my_user', 'role')
         verbose_name = "Vai trò người dùng"
         verbose_name_plural = "Các vai trò người dùng"
-        ordering = ['user__username']
+        ordering = ['my_user__username']
 
     def __str__(self):
         status = '(Đã phê duyệt)' if self.is_approved else ''
-        return f"{self.user.username} - {self.role.get_role_name_display()} {status}"
+        return f"{self.my_user.username} - {self.role.get_role_name_display()} {status}"
 
 
 class Skill(models.Model):
@@ -84,8 +84,8 @@ class Skill(models.Model):
         ordering = ['name']
 
 
-class NtvProfile(BaseModel):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, primary_key=True,
+class JobSeekerProfile(BaseModel):
+    my_user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, primary_key=True,
                                 related_name='ntv_profile')
     summary = models.TextField(blank=True, null=True)
     experience = models.TextField(blank=True, null=True)
@@ -97,16 +97,16 @@ class NtvProfile(BaseModel):
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES, blank=True, null=True)
 
     def __str__(self):
-        return f"Hồ sơ NTV của {self.user.username}"
+        return f"Hồ sơ NTV của {self.my_user.username}"
 
     class Meta:
-        verbose_name = "Hồ sơ Người tìm việc"
-        verbose_name_plural = "Hồ sơ Người tìm việc"
-        ordering = ['user__username']
+        verbose_name = "Hồ sơ người tìm việc"
+        verbose_name_plural = "Các hồ sơ người tìm việc"
+        ordering = ['my_user__username']
 
 
-class NtdProfile(BaseModel):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, primary_key=True,
+class RecruiterProfile(BaseModel):
+    my_user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, primary_key=True,
                                 related_name='ntd_profile')
     company_name = models.CharField(max_length=255)
     company_website = models.URLField(blank=True, null=True)
@@ -116,7 +116,7 @@ class NtdProfile(BaseModel):
     company_logo = CloudinaryField(blank=True, null=True, folder='company_logos')
 
     def __str__(self):
-        return f"{self.company_name} ({self.user.username})"
+        return f"{self.company_name} ({self.my_user.username})"
 
     class Meta:
         verbose_name = "Hồ sơ Nhà tuyển dụng"
@@ -125,7 +125,7 @@ class NtdProfile(BaseModel):
 
 
 class CV(BaseModel):
-    ntv_profile = models.ForeignKey(NtvProfile, on_delete=models.CASCADE, related_name='cvs')
+    job_seeker_profile = models.ForeignKey(JobSeekerProfile, on_delete=models.CASCADE, related_name='cvs')
     file_name = models.CharField(max_length=255, blank=True, null=True)
     file_path = CloudinaryField(resource_type='raw', folder='cvs')
     version_name = models.CharField(max_length=100, blank=True, null=True)
@@ -135,6 +135,10 @@ class CV(BaseModel):
     def __str__(self):
         return f"CV {self.version_name or self.file_name or self.id}"
 
+    def delete(self, *args, **kwargs):
+        self.is_deleted = True
+        self.save()
+
     class Meta:
         verbose_name = "CV"
         verbose_name_plural = "Các CV"
@@ -143,7 +147,7 @@ class CV(BaseModel):
 
 class JobPosting(BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    ntd_profile = models.ForeignKey(NtdProfile, on_delete=models.CASCADE, related_name='job_postings')
+    recruiter_profile = models.ForeignKey(RecruiterProfile, on_delete=models.CASCADE, related_name='job_postings')
     title = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255, unique=True, blank=True)
     description = models.TextField()
@@ -175,15 +179,27 @@ class JobPosting(BaseModel):
         Đóng tin tuyển dụng, thay đổi trạng thái thành 'closed'.
         """
         self.status = 'closed'
+        self.is_active = False
+        self.save()
+
+    def approve_job(self):
+        """Phê duyệt tin tuyển dụng, thay đổi trạng thái thành 'approved'"""
+        self.status = 'approved'
+        self.save()
+
+    def reject_job(self):
+        """Từ chối tin tuyển dụng, thay đổi trạng thái về 'draft'"""
+        self.status = 'draft'
         self.save()
 
     def save(self, *args, **kwargs):
         """
-        Tạo slug tự động và kiểm tra nếu trạng thái hết hạn.
+        Tạo slug tự động khi title thay đổi và kiểm tra nếu trạng thái hết hạn.
         """
-        # Tự động tạo slug nếu không có
-        if not self.slug:
+        # Tạo slug mới nếu chưa có hoặc nếu title đã thay đổi
+        if not self.slug or self.title != self.slug:
             base_slug = slugify(self.title)
+            base_slug = base_slug.replace('_', '-')  # Loại bỏ dấu gạch dưới nếu có
             slug = base_slug
             count = 1
             while JobPosting.objects.filter(slug=slug).exists():
@@ -191,14 +207,15 @@ class JobPosting(BaseModel):
                 count += 1
             self.slug = slug
 
-        # Kiểm tra nếu đã hết hạn và đóng tin
+        # Kiểm tra nếu bài đăng đã hết hạn và tự động đóng bài đăng nếu hết hạn
         if self.expiration_date and self.expiration_date < timezone.now():
-            self.close_job()  # Tự động đóng tin tuyển dụng khi hết hạn
+            self.close_job()
 
+        # Lưu các thay đổi
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.title} tại {self.ntd_profile.company_name}"
+        return f"{self.title} tại {self.recruiter_profile.company_name}"
 
     class Meta:
         verbose_name = "Bài đăng tuyển dụng"
@@ -207,7 +224,7 @@ class JobPosting(BaseModel):
 
 
 class Application(BaseModel):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='applications')
+    my_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='applications')
     job_posting = models.ForeignKey(JobPosting, on_delete=models.CASCADE, related_name='applications')
     cv = models.ForeignKey(CV, on_delete=models.SET_NULL, null=True, blank=True, related_name='applications')
     STATUS_CHOICES = [
@@ -222,13 +239,13 @@ class Application(BaseModel):
     cover_letter = models.TextField(blank=True, null=True)
 
     class Meta:
-        unique_together = ('user', 'job_posting')
+        unique_together = ('my_user', 'job_posting')
         verbose_name = "Đơn ứng tuyển"
-        verbose_name_plural = "Các đơn ứng tuyển"
-        ordering = ['user__username']
+        verbose_name_plural = "Các đơn ứng tuyển "
+        ordering = ['my_user__username']
 
     def __str__(self):
-        return f"{self.user.username} ứng tuyển vào {self.job_posting.title}"
+        return f"{self.my_user.username} ứng tuyển vào {self.job_posting.title}"
 
 
 class Message(BaseModel):
@@ -266,11 +283,19 @@ class Interview(BaseModel):
     application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='interviews')
     scheduled_time = models.DateTimeField()
     platform_link = models.URLField(blank=True, null=True)
-    STATUS_CHOICES = [('Scheduled', 'Đã lên lịch'), ('Completed', 'Đã hoàn thành'), ('Cancelled', 'Đã hủy')]
+    STATUS_CHOICES = [
+        ('Scheduled', 'Đã lên lịch'),
+        ('Completed', 'Đã hoàn thành'),
+        ('Cancelled', 'Đã hủy')
+    ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Scheduled')
-    notes_ntd = models.TextField(blank=True, null=True)
-    notes_ntv = models.TextField(blank=True, null=True)
-    RESULT_CHOICES = [('Passed', 'Đạt'), ('Failed', 'Không đạt'), ('Pending', 'Chờ kết quả')]
+    notes_recruiter = models.TextField(blank=True, null=True)
+    notes_job_seeker = models.TextField(blank=True, null=True)
+    RESULT_CHOICES = [
+        ('Passed', 'Đạt'),
+        ('Failed', 'Không đạt'),
+        ('Pending', 'Chờ kết quả')
+    ]
     result = models.CharField(max_length=20, choices=RESULT_CHOICES, default='Pending', blank=True, null=True)
 
     def __str__(self):
@@ -279,7 +304,6 @@ class Interview(BaseModel):
     class Meta:
         verbose_name = "Cuộc phỏng vấn"
         verbose_name_plural = "Các cuộc phỏng vấn"
-        ordering = ['scheduled_time']
         unique_together = ('application',)
 
 
@@ -306,6 +330,5 @@ class Notification(BaseModel):
     class Meta:
         verbose_name = "Thông báo"
         verbose_name_plural = "Các thông báo"
-        ordering = ['created_at']
 
 

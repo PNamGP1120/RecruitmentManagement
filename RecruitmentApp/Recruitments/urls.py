@@ -1,10 +1,10 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from .views import RegistrationView, LoginView, UpdateNtvProfileView, CreateNtdProfileView, AdminApproveNtdProfileView, \
-    AdminAssignAdminRoleView, UserRolesView, ChangeRoleView, \
-    CurrentUserView, UpdateUserProfileView, CVViewSet, JobPostingViewSet, ApplicationViewSet, InterviewViewSet, \
-    MessageViewSet, AllConversationsView
+from .views import RegistrationView, LoginView, CVViewSet, ApplicationViewSet, JobPostingViewSet, InterviewViewSet, \
+    MessageViewSet, AllConversationsView, UpdateJobSeekerProfileView, CreateRecruiterProfileView, \
+    AdminApproveRecruiterProfileView, AdminAssignAdminRoleView, UserRolesView, ChangeRoleView, CurrentUserView, \
+    UpdateUserProfileView
 
 router = DefaultRouter()
 router.register(r'cvs', CVViewSet, basename='cv')
@@ -12,6 +12,10 @@ router.register(r'job-postings', JobPostingViewSet, basename='job-posting')
 router.register(r'applications', ApplicationViewSet, basename='application')
 router.register(r'interviews', InterviewViewSet, basename='interview')
 router.register(r'messages', MessageViewSet, basename='message')
+
+
+
+
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -26,7 +30,7 @@ urlpatterns = [
     # CV
     path('cvs/<int:pk>/set_default/', CVViewSet.as_view({'post': 'set_default'}), name='cv-set-default'),
 
-    # Applications (Đơn ứng tuyển)
+    # Applications
     path('applications/', ApplicationViewSet.as_view({'get': 'list', 'post': 'create'}),
          name='applications-list-create'),
     path('applications/<uuid:pk>/',
@@ -37,9 +41,9 @@ urlpatterns = [
     # Other User Management APIs
     path('register/', RegistrationView.as_view(), name='register'),
     path('login/', LoginView.as_view(), name='login'),
-    path('create-ntv-profile/', UpdateNtvProfileView.as_view(), name='update_ntv_profile'),
-    path('create-ntd-profile/', CreateNtdProfileView.as_view(), name='create-ntd-profile'),
-    path('admin/approve-ntd-profile/', AdminApproveNtdProfileView.as_view(), name='approve-ntd-profile'),
+    path('create-ntv-profile/', UpdateJobSeekerProfileView.as_view(), name='update_ntv_profile'),
+    path('create-ntd-profile/', CreateRecruiterProfileView.as_view(), name='create-ntd-profile'),
+    path('admin/approve-ntd-profile/', AdminApproveRecruiterProfileView.as_view(), name='approve-ntd-profile'),
     path('admin/assign-admin/', AdminAssignAdminRoleView.as_view(), name='admin-assign-admin'),
     path('user/roles/', UserRolesView.as_view(), name='user_roles'),
     path('change-role/', ChangeRoleView.as_view(), name='change_role'),

@@ -1,5 +1,4 @@
 from django.contrib.auth import authenticate
-from django.db.models import Count, Q
 from django.utils import timezone
 from firebase_admin import db
 from rest_framework import status, generics, viewsets, serializers
@@ -10,13 +9,13 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 import uuid
 
-from .models import NtvProfile, Role, UserRole, Notification, NtdProfile, User, CV, JobPosting, Application, Interview, \
+from .models import JobSeekerProfile, Role, UserRole, Notification, RecruiterProfile, MyUser, CV, JobPosting, Application, Interview, \
     Message
 from .permissions import IsAuthenticated, IsCreateOnly, IsAdminForUserRoleApproval, IsAdmin, IsJobSeeker, IsUserOwnerCV, \
     IsEmployer
-from .serializers import RegistrationSerializer, LoginSerializer, NtvProfileSerializer, NtdProfileSerializer, \
-    UserSerializer, UserRoleSerializer, CVSerializer, JobPostingSerializer, ApplicationSerializer, InterviewSerializer, \
-    MessageSerializer, ConversationSerializer
+from .serializers import RegistrationSerializer, LoginSerializer, JobSeekerProfileSerializer, \
+    RecruiterProfileSerializer, MyUserSerializer, UserRoleSerializer, CVSerializer, JobPostingSerializer, \
+    ApplicationSerializer, InterviewSerializer, MessageSerializer
 
 
 class RegistrationView(generics.CreateAPIView):
@@ -44,7 +43,8 @@ class LoginView(generics.GenericAPIView):
     serializer_class = LoginSerializer
     permission_classes = [IsCreateOnly]
 
-    def post(self, request, *args, **kwargs):
+    @staticmethod
+    def post(request, *args, **kwargs):
         username = request.data.get('username')
         password = request.data.get('password')
 
@@ -61,28 +61,28 @@ class LoginView(generics.GenericAPIView):
         return Response({'access': str(access_token), 'refresh': str(refresh)}, status=status.HTTP_200_OK)
 
 
-class UpdateNtvProfileView(generics.GenericAPIView):
+class UpdateJobSeekerProfileView(generics.GenericAPIView):
     """
     API để tạo mới hoặc cập nhật hồ sơ người tìm việc.
     """
-    serializer_class = NtvProfileSerializer
+    serializer_class = JobSeekerProfileSerializer
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
         user = self.request.user
         try:
-            return user.ntv_profile
-        except NtvProfile.DoesNotExist:
-            return NtvProfile.objects.create(user=user)
+            return user.job_seeker_profile
+        except JobSeekerProfile.DoesNotExist:
+            return JobSeekerProfile.objects.create(user=user)
 
     def update(self, request, *args, **kwargs):
-        ntv_profile = self.get_object()
-        serializer = self.get_serializer(ntv_profile, data=request.data)
+        job_seeker_profile = self.get_object()
+        serializer = self.get_serializer(job_seeker_profile, data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        if ntv_profile.summary and ntv_profile.experience and ntv_profile.education:
-            role, created = Role.objects.get_or_create(role_name=Role.NTV)
+        if job_seeker_profile.summary and job_seeker_profile.experience and job_seeker_profile.education:
+            role, created = Role.objects.get_or_create(role_name=Role.JobSeeker)
             user = request.user
             if user.active_role is None or user.active_role != role:
                 user.active_role = role
@@ -103,7 +103,7 @@ class UpdateNtvProfileView(generics.GenericAPIView):
             return Response({
                 "message": "Cập nhật hồ sơ thành công và vai trò 'Người tìm việc' đã được gán và phê duyệt.",
                 "user": {"username": user.username, "email": user.email, "active_role": user.active_role.role_name},
-                "ntv_profile": NtvProfileSerializer(ntv_profile).data
+                "job_seeker_profile": JobSeekerProfileSerializer(job_seeker_profile).data
             }, status=status.HTTP_200_OK)
         else:
             return Response(
@@ -114,32 +114,32 @@ class UpdateNtvProfileView(generics.GenericAPIView):
         return self.update(request, *args, **kwargs)
 
 
-class CreateNtdProfileView(generics.GenericAPIView):
+class CreateRecruiterProfileView(generics.GenericAPIView):
     """
     API để nhập thông tin nhà tuyển dụng.
     """
-    serializer_class = NtdProfileSerializer
+    serializer_class = RecruiterProfileSerializer
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
         user = self.request.user
         try:
-            return user.ntd_profile
-        except NtdProfile.DoesNotExist:
+            return user.recruiter_profile
+        except RecruiterProfile.DoesNotExist:
             return None
 
     def update(self, request, *args, **kwargs):
-        ntd_profile = self.get_object()
-        if ntd_profile:
-            serializer = self.get_serializer(ntd_profile, data=request.data)
+        recruiter_profile = self.get_object()
+        if recruiter_profile:
+            serializer = self.get_serializer(recruiter_profile, data=request.data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             message = "Cập nhật hồ sơ nhà tuyển dụng thành công."
         else:
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            ntd_profile = serializer.save(user=request.user)
-            message = "Thông tin nhà tuyển dụng đã được nhập. Yêu cầu phê duyệt đã được gửi đến admin."
+            recruiter_profile = serializer.save(user=request.user)
+            message = "Thông tin nhà tuyển dụng đã được nhập. Yêu cầu phê duyệt đã được gửi đến Admin."
 
         notification_to_user = Notification.objects.create(
             recipient=request.user,
@@ -150,21 +150,21 @@ class CreateNtdProfileView(generics.GenericAPIView):
             is_read=False
         )
 
-        admin_users = User.objects.filter(user_roles__role__role_name=Role.ADMIN)
-        if not admin_users:
-            return Response({"detail": "Không tìm thấy admin để gửi thông báo."}, status=status.HTTP_400_BAD_REQUEST)
+        Admin_users = MyUser.objects.filter(user_roles__role__role_name=Role.Admin)
+        if not Admin_users:
+            return Response({"detail": "Không tìm thấy Admin để gửi thông báo."}, status=status.HTTP_400_BAD_REQUEST)
 
-        for admin_user in admin_users:
+        for Admin_user in Admin_users:
             Notification.objects.create(
-                recipient=admin_user,
+                recipient=Admin_user,
                 sender=request.user,
                 message=f"Yêu cầu phê duyệt vai trò 'Nhà tuyển dụng' cho {request.user.username}",
                 type="System",
-                related_url=f"/admin/approval/",
+                related_url=f"/Admin/approval/",
                 is_read=False
             )
 
-        role = Role.objects.get(role_name=Role.NTD)
+        role = Role.objects.get(role_name=Role.Recruiter)
         user_role, created = UserRole.objects.get_or_create(
             user=request.user,
             role=role,
@@ -173,7 +173,7 @@ class CreateNtdProfileView(generics.GenericAPIView):
 
         return Response({
             "message": message,
-            "ntd_profile": NtdProfileSerializer(ntd_profile).data,
+            "recruiter_profile": RecruiterProfileSerializer(recruiter_profile).data,
             "user": {"username": request.user.username, "email": request.user.email,
                      "active_role": request.user.active_role.role_name}
         }, status=status.HTTP_200_OK)
@@ -182,28 +182,29 @@ class CreateNtdProfileView(generics.GenericAPIView):
         return self.update(request, *args, **kwargs)
 
 
-class AdminApproveNtdProfileView(generics.GenericAPIView):
+class AdminApproveRecruiterProfileView(generics.GenericAPIView):
     """
     API phê duyệt yêu cầu Nhà tuyển dụng.
     """
     permission_classes = [IsAdminForUserRoleApproval]
 
-    def post(self, request, *args, **kwargs):
-        ntd_profile_id = request.data.get('ntd_profile_id')
-        if not ntd_profile_id:
+    @staticmethod
+    def post(request, *args, **kwargs):
+        recruiter_profile_id = request.data.get('recruiter_profile_id')
+        if not recruiter_profile_id:
             return Response({"detail": "ID hồ sơ nhà tuyển dụng không được cung cấp."},
                             status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            ntd_profile = NtdProfile.objects.get(user_id=ntd_profile_id)
-        except NtdProfile.DoesNotExist:
+            recruiter_profile = RecruiterProfile.objects.get(user_id=recruiter_profile_id)
+        except RecruiterProfile.DoesNotExist:
             return Response({"detail": "Nhà tuyển dụng không tồn tại."}, status=status.HTTP_404_NOT_FOUND)
 
-        ntd_profile.is_approved = True
-        ntd_profile.save()
+        recruiter_profile.is_approved = True
+        recruiter_profile.save()
 
-        role, created = Role.objects.get_or_create(role_name=Role.NTD)
-        user = ntd_profile.user
+        role, created = Role.objects.get_or_create(role_name=Role.Recruiter)
+        user = recruiter_profile.my_user
         user_role, created = UserRole.objects.get_or_create(
             user=user,
             role=role,
@@ -234,7 +235,7 @@ class AdminApproveNtdProfileView(generics.GenericAPIView):
             sender=request.user,
             message=f"Bạn đã phê duyệt yêu cầu trở thành Nhà tuyển dụng của {user.username}.",
             type="System",
-            related_url=f"/admin/ntd-profile/",
+            related_url=f"/Admin/recruiter-profile/",
             is_read=False
         )
 
@@ -246,22 +247,23 @@ class AdminApproveNtdProfileView(generics.GenericAPIView):
 
 class AdminAssignAdminRoleView(generics.GenericAPIView):
     """
-    API để admin chỉ định người dùng trở thành Quản trị viên.
+    API để Admin chỉ định người dùng trở thành Quản trị viên.
     """
     permission_classes = [IsAdminForUserRoleApproval]
 
-    def post(self, request, *args, **kwargs):
+    @staticmethod
+    def post(request, *args, **kwargs):
         user_id = request.data.get('user_id')
 
         try:
-            user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
+            user = MyUser.objects.get(id=user_id)
+        except MyUser.DoesNotExist:
             return Response({"detail": "Người dùng không tồn tại."}, status=status.HTTP_404_NOT_FOUND)
 
-        if user.active_role and user.active_role.role_name == Role.ADMIN:
+        if user.active_role and user.active_role.role_name == Role.Admin:
             return Response({"detail": "Người dùng đã có vai trò Quản trị viên."}, status=status.HTTP_400_BAD_REQUEST)
 
-        role = Role.objects.get(role_name=Role.ADMIN)
+        role = Role.objects.get(role_name=Role.Admin)
 
         user_role, created = UserRole.objects.get_or_create(
             user=user,
@@ -278,7 +280,7 @@ class AdminAssignAdminRoleView(generics.GenericAPIView):
         user.active_role = role
         user.save()
 
-        user_serializer = UserSerializer(user)
+        user_serializer = MyUserSerializer(user)
 
         return Response({
             "message": "Người dùng đã được chỉ định làm Quản trị viên.",
@@ -348,7 +350,7 @@ class CurrentUserView(generics.RetrieveAPIView):
     """
     API để lấy thông tin người dùng hiện tại.
     """
-    serializer_class = UserSerializer
+    serializer_class = MyUserSerializer
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
@@ -359,7 +361,7 @@ class UpdateUserProfileView(generics.UpdateAPIView):
     """
     API để cập nhật thông tin người dùng (name, avatar).
     """
-    serializer_class = UserSerializer
+    serializer_class = MyUserSerializer
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
@@ -390,13 +392,13 @@ class CVViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Lấy CV của người tìm việc đã đăng nhập hoặc nếu admin thì lấy tất cả CV.
+        Lấy CV của người tìm việc đã đăng nhập hoặc nếu Admin thì lấy tất cả CV.
         """
         user = self.request.user
         if IsAdmin().has_permission(self.request, self):
             return CV.objects.all()  # Admin có thể xem tất cả CV
         else:
-            return CV.objects.filter(ntv_profile__user=user)  # Người tìm việc chỉ xem CV của mình
+            return CV.objects.filter(job_seeker_profile__user=user)  # Người tìm việc chỉ xem CV của mình
 
     def perform_create(self, serializer):
         """
@@ -407,15 +409,15 @@ class CVViewSet(viewsets.ModelViewSet):
 
         # Kiểm tra xem người dùng có role là NTV và đã có hồ sơ NTV
         if IsJobSeeker().has_permission(self.request, self):
-            ntv_profile = user.ntv_profile  # Kiểm tra xem người dùng có hồ sơ NTV không
-            if not ntv_profile:
+            job_seeker_profile = user.job_seeker_profile  # Kiểm tra xem người dùng có hồ sơ NTV không
+            if not job_seeker_profile:
                 return Response(
                     {"detail": "Bạn chưa có hồ sơ NTV. Vui lòng tạo hồ sơ trước khi tạo CV."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Gán `ntv_profile` cho CV và lưu
-            serializer.save(ntv_profile=ntv_profile)
+            # Gán `job_seeker_profile` cho CV và lưu
+            serializer.save(job_seeker_profile=job_seeker_profile)
             return Response({
                 "message": "Tạo CV thành công!",
                 "cv": serializer.data
@@ -462,7 +464,7 @@ class CVViewSet(viewsets.ModelViewSet):
         cv = self.get_object()  # Lấy CV từ request
 
         # Kiểm tra xem người dùng có quyền sở hữu CV này không
-        if cv.ntv_profile.user != request.user:
+        if cv.job_seeker_profile.user != request.user:
             return Response({"detail": "Bạn không có quyền chỉnh sửa CV của người khác."},
                             status=status.HTTP_403_FORBIDDEN)
 
@@ -471,7 +473,7 @@ class CVViewSet(viewsets.ModelViewSet):
         cv.save()
 
         # Đảm bảo rằng các CV khác của người tìm việc không phải là mặc định nữa
-        CV.objects.filter(ntv_profile=cv.ntv_profile).exclude(id=cv.id).update(is_default=False)
+        CV.objects.filter(job_seeker_profile=cv.job_seeker_profile).exclude(id=cv.id).update(is_default=False)
 
         return Response({
             "message": "CV đã được chọn làm mặc định!",
@@ -536,8 +538,8 @@ class JobPostingViewSet(viewsets.ModelViewSet):
         if IsAdmin().has_permission(self.request, self):
             return JobPosting.objects.all()  # Admin có thể xem tất cả tin tuyển dụng
         elif IsEmployer().has_permission(self.request, self):
-            # NTD chỉ xem tin tuyển dụng của chính mình
-            return JobPosting.objects.filter(ntd_profile__user=user)
+            # 6 chỉ xem tin tuyển dụng của chính mình
+            return JobPosting.objects.filter(recruiter_profile__user=user)
         elif IsJobSeeker().has_permission(self.request, self):
             # NTV chỉ xem các tin đã duyệt và active
             return JobPosting.objects.filter(status='approved', is_active=True)
@@ -551,11 +553,11 @@ class JobPostingViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         # Kiểm tra người dùng có hồ sơ nhà tuyển dụng chưa
-        if not user.ntd_profile:
+        if not user.recruiter_profile:
             raise serializers.ValidationError("Bạn cần tạo hồ sơ nhà tuyển dụng trước khi đăng tin tuyển dụng.")
 
         # Tạo tin tuyển dụng và gán cho hồ sơ nhà tuyển dụng của người dùng
-        job_posting = serializer.save(ntd_profile=user.ntd_profile)
+        job_posting = serializer.save(recruiter_profile=user.recruiter_profile)
 
         return Response({
             "message": "Tạo tin tuyển dụng thành công!",
@@ -568,7 +570,7 @@ class JobPostingViewSet(viewsets.ModelViewSet):
         Chỉ nhà tuyển dụng có thể sửa tin tuyển dụng của mình.
         """
         job_posting = self.get_object()
-        if job_posting.ntd_profile.user != self.request.user:
+        if job_posting.recruiter_profile.user != self.request.user:
             return Response({"detail": "Bạn không có quyền sửa tin tuyển dụng này."}, status=status.HTTP_403_FORBIDDEN)
 
         serializer.save()
@@ -611,13 +613,13 @@ class JobPostingViewSet(viewsets.ModelViewSet):
         job_posting.status = 'approved'
         job_posting.save()
 
-        # Tạo thông báo cho admin khi yêu cầu phê duyệt đã được gửi
+        # Tạo thông báo cho Admin khi yêu cầu phê duyệt đã được gửi
         Notification.objects.create(
             recipient=request.user,
             sender=request.user,
-            message=f"Yêu cầu phê duyệt tin tuyển dụng '{job_posting.title}' của {job_posting.ntd_profile.company_name} đã được phê duyệt.",
+            message=f"Yêu cầu phê duyệt tin tuyển dụng '{job_posting.title}' của {job_posting.recruiter_profile.company_name} đã được phê duyệt.",
             type="System",
-            related_url=f"/admin/job-posting/{job_posting.id}",
+            related_url=f"/Admin/job-posting/{job_posting.id}",
             is_read=False
         )
 
@@ -630,7 +632,7 @@ class JobPostingViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def request_approval(self, request, slug=None):
         """
-        Nhà tuyển dụng gửi yêu cầu phê duyệt cho admin.
+        Nhà tuyển dụng gửi yêu cầu phê duyệt cho Admin.
         """
         # Lấy đối tượng JobPosting qua slug thay vì pk
         job_posting = JobPosting.objects.filter(slug=slug).first()
@@ -648,15 +650,15 @@ class JobPostingViewSet(viewsets.ModelViewSet):
         job_posting.status = 'pending_approval'
         job_posting.save()
 
-        # Tạo thông báo cho admin
-        admin_users = User.objects.filter(active_role__role_name='ADMIN')
-        for admin in admin_users:
+        # Tạo thông báo cho Admin
+        Admin_users = MyUser.objects.filter(active_role__role_name='Admin')
+        for Admin in Admin_users:
             Notification.objects.create(
-                recipient=admin,
+                recipient=Admin,
                 sender=request.user,
-                message=f"Yêu cầu phê duyệt tin tuyển dụng '{job_posting.title}' của {job_posting.ntd_profile.company_name}.",
+                message=f"Yêu cầu phê duyệt tin tuyển dụng '{job_posting.title}' của {job_posting.recruiter_profile.company_name}.",
                 type="System",
-                related_url=f"/admin/job-posting/{job_posting.id}",
+                related_url=f"/Admin/job-posting/{job_posting.id}",
                 is_read=False
             )
 
@@ -687,7 +689,7 @@ class JobPostingViewSet(viewsets.ModelViewSet):
                 return Response({"detail": "Bạn không có quyền xem bài đăng này."}, status=status.HTTP_403_FORBIDDEN)
 
         if IsEmployer().has_permission(self.request, self):
-            if job_posting.ntd_profile.user != self.request.user:  # Nhà tuyển dụng chỉ xem tin của mình
+            if job_posting.recruiter_profile.user != self.request.user:  # Nhà tuyển dụng chỉ xem tin của mình
                 return Response({"detail": "Bạn không có quyền xem bài đăng này."}, status=status.HTTP_403_FORBIDDEN)
 
         return Response({
@@ -791,7 +793,7 @@ class InterviewViewSet(viewsets.ModelViewSet):
 
         # Gửi thông báo đến người tìm việc về lịch phỏng vấn
         Notification.objects.create(
-            recipient=application.user,
+            recipient=application.my_user,
             sender=request.user,
             message=f"Cuộc phỏng vấn cho công việc '{application.job_posting.title}' đã được lên lịch vào {scheduled_time}.",
             type="InterviewReminder",
@@ -812,7 +814,7 @@ class InterviewViewSet(viewsets.ModelViewSet):
         """
         interview_id = request.data.get('interview_id')
         result = request.data.get('result')
-        notes_ntd = request.data.get('notes_ntd')
+        notes_recruiter = request.data.get('notes_recruiter')
 
         if not interview_id:
             return Response({"detail": "Vui lòng cung cấp interview_id."}, status=status.HTTP_400_BAD_REQUEST)
@@ -827,8 +829,8 @@ class InterviewViewSet(viewsets.ModelViewSet):
 
         interview.result = result
         interview.status = 'Completed'
-        if notes_ntd is not None:
-            interview.notes_ntd = notes_ntd
+        if notes_recruiter is not None:
+            interview.notes_recruiter = notes_recruiter
         interview.save()
 
         Notification.objects.create(
@@ -844,6 +846,7 @@ class InterviewViewSet(viewsets.ModelViewSet):
             "message": f"Kết quả phỏng vấn đã được cập nhật thành {result}.",
             "interview": InterviewSerializer(interview).data
         }, status=status.HTTP_200_OK)
+
 
 
 class MessageViewSet(viewsets.ModelViewSet):
@@ -977,7 +980,7 @@ class AllConversationsView(APIView):
         # Chuyển dữ liệu cuộc hội thoại thành dạng chuẩn để trả về
         conversation_list = []
         for participant_id, conversation in conversations.items():
-            participant = User.objects.get(id=participant_id)  # Lấy thông tin người tham gia (người đối diện)
+            participant = MyUser.objects.get(id=participant_id)  # Lấy thông tin người tham gia (người đối diện)
             conversation_data = {
                 'participant': participant.username,  # Hoặc bạn có thể trả về thông tin khác của người tham gia
                 'messages': conversation['messages'],
@@ -985,3 +988,4 @@ class AllConversationsView(APIView):
             conversation_list.append(conversation_data)
 
         return Response(conversation_list)
+
